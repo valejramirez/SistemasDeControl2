@@ -1,0 +1,89 @@
+%Trabajo practico N° 1 - Sistemas de Control II - FCEFyN
+%Profesor: Dr. Ing. Julian Pucheta
+%Alumno: Valentin Jose Ramirez
+%Ej N° 1: Asignar valores a R=47, L=1e-6, y C=100e-9. Obtener simulaciones que permitan 
+% estudiar la dinamica del sistema, con una entrada de tensión escalón de 12V, que cada 1ms cambia 
+% de signo.
+%x1 es como varia la corriente en el tiempo
+%x2 es como varia la tension en el capacitor en el tiempo
+%x = A* x(t) + B* x(t)
+%y = Ct * x(t)
+L=1e-6; R= 47; Cap=100e-9; %Asigno valores  a L,R y C
+A=[-R/L, -1/L; 1/Cap , 0]; B=[1/L; 0]; Ct= [R, 0]; D=0; %Definp matrices
+x = [0;0]; xop=[0;0]; y(1)=0; %Condiciones iniciales nulas
+%Primero encuentro la funcion de transferencia del sistema
+system= ss(A,B,Ct,D); %Creo el modelo de estados a partir de las matrices de estado
+FdT=tf(system);
+polos_FdT=pole(FdT); %Busco polos para encontrar la dinamica mas rapida y mas lenta de mi FdT, asi puedo elegir mi tiempo de integracion y el tiempo de simulacion
+polo1= polos_FdT(1) ;%Dinamica mas rapida
+polo2= polos_FdT(2); %Dinamica mas lenta
+tr= log(0.95)/polo1;
+Ti= tr/10; % Divido por 10 para tener un tiempo de integracion de Euler adecuado;
+%Vectores para entrada escalon:
+delay= 1e5*1e-9; %Retardo incial;
+%Para el tiempo de simulacion podria haber usado el 5% de la dinamica mas
+%lenta para calcularlo, pero como ya lo habia hecho antes con este vector y
+%anduvo bien lo deje así.
+t0_v = 0:Ti:delay; % Vector de tiempo desde 0 hasta el final del retardo con paso igual al tiempo de muestreo
+
+t1_v = delay+Ti:Ti:1e-3+delay; %Hago varie cada 1ms despues del retardo
+
+t2_v = t1_v(end)+Ti:Ti:t1_v(end)+1e-3;
+
+t3_v = t2_v(end)+Ti:Ti:t2_v(end)+1e-3;
+
+t4_v = t3_v(end)+Ti:Ti:t3_v(end)+1e-3;
+
+time = [t0_v t1_v t2_v t3_v t4_v]; %Vector para el tiempo, multiplico por +/-12 para tener el escalon deseado despues del retardo
+
+%Vector para Escalon:
+
+u1 = zeros(1,length(t0_v)); % Delay
+
+u2 = 12*ones(1, length(t1_v)); % Entrada +12V
+
+u3 = -12*ones(1, length(t2_v)); % Entrada -12V
+
+u = [u1 u2 u3 u2 u3];
+
+%Evolucion del sistema:
+Vc = zeros(1, length(time));
+I = zeros(1, length(time));
+Vc(1)=0; I(1)=0;
+
+for ii = 1:length(time)
+    xp= A*(x-xop) + B.*u(ii);
+    
+    x= x + xp.* Ti;
+    y= Ct * x;
+    
+    I(ii)= x(1);
+    Vc(ii)= x(2);
+    
+end
+
+%Graficos
+figure('Position', [100, 100, 800, 800]);
+
+subplot(3,1,1);
+plot(time.*1e3, u, 'r');
+grid on;
+title('Entrada, u(t)');
+ylabel('V[V]');
+xlabel('t[ms]');
+
+subplot(3,1,2);
+plot(time.*1e3, Vc);
+grid on;
+title('Tension en el Capacitor');
+ylabel('V[V]');
+xlabel('t[ms]');
+
+
+subplot(3,1,3);
+plot(time.*1e3, I);
+grid on;
+title('Corriente');
+ylabel('I[A]');
+xlabel('t[ms]');
+
