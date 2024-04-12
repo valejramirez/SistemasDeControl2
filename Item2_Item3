@@ -1,0 +1,165 @@
+%Trabajo practico N° 1 - Sistemas de Control II - FCEFyN
+%Profesor: Dr. Ing. Julian Pucheta
+%Alumno: Valentin Jose Ramirez
+%Ej N° 2 y 3: En el archivo Curvas_Medidas_RLC.xls (datos en la hoja 1 y
+%etiquetas en la hoja 2)
+%estan las series de datos que sirven para deducir los valores de R, L y C del circuito. Emplear el
+%metodo de la respuesta al escalón, tomando como salida la tensión en el
+%capacitor.
+%Corriente max del primer pico= 0.0358836 A
+
+archivo_excel = 'curva.xls';
+hoja_datos = 'Hoja1';
+
+% Lee los datos del archivo Excel
+[numeros, texto, datos] = xlsread(archivo_excel, hoja_datos);
+time = numeros(:, 1); % Tiempo [s]
+icurva = numeros(:, 2); % Corriente [A]
+vc = numeros(:, 3); % Tension en el capacitor (salida) [V]
+ve = numeros(:, 4); % Tension escalon +/- 12 V (entrada) [V]
+
+
+% Plots para visaulizar las curvas de corriente y Vc
+%figure;
+%plot(time,i_v);
+%hold on;
+% 
+%figure;
+%plot(time,vc)
+%hold on;
+ %plot(time,ve)
+% Al ser un sistema de segundo orden con polos distintos, es necesario
+% tomar 3 puntos (t1,t2,t3)
+delay = 10e-3; %instante en el que actua la entrada
+%Elijo los 3 tiempos equidistantes para aplicar el metodo de Chen
+t1= 0.003;
+t2= 2*t1;
+t3= 3*t1;
+%Salidas para esos tiempos:
+y_t1 = vc(t1/0.0001+delay/0.0001+1);
+y_t2= vc(t2/0.0001+delay/0.0001+1);
+y_t3 = vc(t3/0.0001+delay/0.0001+1);
+%Es importante definir la ganancia K, que por el teorema del valor final:
+K= vc(end)/ve(end); %K=1
+AmplitudEscalon= 12; %Amplitud del escalon
+%Planteo ecuaciones
+k1=(1/AmplitudEscalon)*y_t1/K-1;
+k2=(1/AmplitudEscalon)*y_t2/K-1;
+k3=(1/AmplitudEscalon)*y_t3/K-1;
+b=4*k1^3*k3 - 3*k1^2*k2^2 - 4*k2^3 + k3^2 + 6*k1*k2*k3;
+alfa1=(k1*k2+k3-sqrt(b))/(2*(k1^2+k2));
+alfa2=(k1*k2+k3+sqrt(b))/(2*(k1^2+k2));
+beta=(k1+alfa2)/(alfa1-alfa2);
+%Tomo varias muestras para promediar
+ii=0;
+ii=ii+1;
+T1est=-t1/log(alfa1);
+T2est=-t1/log(alfa2);
+T3est=beta*(T1est-T2est)+T1est;
+T1(ii)=T1est;
+T2(ii)=T2est;
+T3(ii)=T3est;
+%promediamos para mejorar la estimación
+T3est=sum(T3/length(T3));
+T2est=sum(T2/length(T2));
+T1est=sum(T1/length(T1));
+
+num=[T3est 1];
+den=conv([T1est 1],[T2est 1]);
+Gs=tf(K*num, den)
+%Grafico para ver la respuesta al impulso de la funcion de transferencia
+%encontrada
+%step(G, 0.06)
+%Ahora, tengo que encontrar los parametros R, L y C del circuito
+% R se puede calcular a partir de la corriente maxima partiendo de condiciones
+% iniciales nulas, que podemos encontrar en el primer pico de corriente del
+% grafico, donde imax= 0.0358836 A
+R= 12/0.0358836 %Valor R= 334.4146
+%Despues, para encontrar la disposicion de los parametros L, R, y C de la
+%funcion de transferencia, puedo aplicar algebra matricial a partir de las
+%propiedades de la representacion en el espacio de estados, recordando que
+%FdTss= C * (SI-A)^-1 * B + D
+%syms R L C s
+%A_ss = [-R/L, -1/L; 1/C, 0];
+
+%B_ss = [1/L; 0];
+
+%C_ss = [0 1];
+
+%D_ss = 0;
+
+%Id= [1 0; 0 1];
+
+%adj = adjoint(s*Id-A_ss);
+
+%determinante = det(s*Id-A_ss);
+
+%FdTss= (C_ss*adj*B_ss)/determinante;
+%FdTss = 1/(C*L*s^2 + C*R*s + 1)
+%Esto podria calcularse mas rapido usando la funcion "ss2tf" si no fuera
+%porque las matrices estan compuestas por variables del tipo "symbolic"
+
+%Ahora comparo la FdTss calculada por el metodo de Chen y la obtenida
+%teoricamente:
+%G_theo = 1/(C*L*s^2 + C*R*s + 1)
+%G_Chen= (-5.021e-06 s + 1)/(9.865e-07 s^2 + 0.00269 s + 1)
+%Donde podemos ver que C*L= 9.865e-07 y C*R=0.00269
+%Como ya calculamos R antes:
+C= 0.00269/ R; % Valor del Capacitor: 8.0439e-06
+L= (9.865e-07)/ C% Valor del inductor: 0.1226
+
+%Ahora, para ver la evolucion del sistema:
+A_ss = [-R/L, -1/L; 1/C, 0];
+
+B_ss = [1/L ; 0];
+
+x = [0 ; 0]; % condiciones iniciales nulas
+
+Ts = 0.0001; % Como el de la tabla
+
+Vc_calculada = zeros(1, length(time));
+I_calculada = zeros(1, length(time));
+
+u = ve;
+
+for ii = 1:length(time)
+    
+    I_calculada(ii) = x(1);
+    Vc_calculada(ii) = x(2);
+    
+    xp = A_ss*x + B_ss.*u(ii);
+    
+    x = x + xp.*Ts;
+    
+end
+%Graficas para comparar resultados
+figure;
+plot(time, I_calculada);
+hold all;
+plot(time, icurva, '--');
+grid on;
+title('Curvas de corriente');
+ylabel('I[A]');
+xlabel('t[s]');
+legend('Curva calculada','Curva real (tabla)');
+
+figure;
+plot(time, Vc_calculada);
+hold all;
+plot(time, vc, '--')
+plot(time, ve);
+grid on;
+title('Curvas de Tension en el Capacitor');
+ylabel('Vc[V]');
+xlabel('t[s]');
+legend('Curva calculada','Curva real (tabla)','Entrada');
+
+%Como conclusion, la curva calculada y la curva real de la tension en el capacitor son
+%practicamente exactas, pero la curva de corriente calculada tiene un poco
+%menos de amplitud que la curva real. Esto es por la aproximacion en los
+%parametros, llegue a la conclusion de que se debe a un error de
+%aproximacion en el valor de la resistencia, que afecta directamente a los
+%otros parametros de la funcion de transferencia L y C, variando R
+%ligeramente se obtienen mejores resultados. Por todo el trabajo que
+%conllevo, estoy muy contento con los resultados, que tenga buen finde
+%profe!
