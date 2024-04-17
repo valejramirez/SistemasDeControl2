@@ -48,7 +48,7 @@ for idx = 1:length(t)
     wr(idx) = x(2);
     
     
-    xp = A_m*x + B_m; % agragar "u" para variar las condiciones
+    xp = A_m*x + B_m; 
     x = x + xp.*Ts;
     
 end
