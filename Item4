@@ -1,0 +1,65 @@
+%Trabajo practico N° 1 - Sistemas de Control II - FCEFyN
+%Profesor: Dr. Ing. Julian Pucheta
+%Alumno: Valentin Jose Ramirez
+%Ej N° 4: Obtener el torque máximo que puede soportar el motor modelado mediante las Ecs. (1-5)
+%(1-6) y (1-7) cuando se lo alimenta con 12V, graficando para 5 segundos de tiempo la velocidad
+%angular y corriente ia para establecer su valor máximo como para dimensionar dispositivos
+%electronicos
+clc;clear all; close all;
+Laa=366e-6; J=5e-9; Ra=55.6; B=0; Ki=6.49e-3; Km=6.53e-3;
+
+%DeltaT= 1e-7
+%Voy a reducir el tiempo de simulacion a 1 segundo ya que el transitorio
+%ocurre en el primer milisegundo y seria simular de mas solo por gusto
+
+Va=12;
+
+%TL=0.0001 Prueba 1, wr=2000; ia=15.4mA
+%TL=0.0009 Prueba 3, wr=600; ia=13.4mA
+%TL=0.002 Prueba 5, wr= -780 me pase, Tlmax esta entre 0.001 y 0.002
+%TL= 0.0015 Me pase de nuevo, wr= -130
+TL=0.001399 %Aca wr comienza siendo negativo, pero en regimen es positivo,
+%debo seguir buscando un valor para que 2>wr>0, si supongo que es por el
+%efecto inicial de la carga antes del regimen que me lo gire en sentido
+%contrario al motor por un pequeño instante, puedo suponer este valor como
+%torque maximo. La considero una buena aproximacion, en caso de que el criterio no sea correcto, por favor corregir.
+
+Ts = 1e-7;
+
+A_m = [-Ra/Laa -Km/Laa 0 ; Ki/J -B/J 0 ; 0 1 0];
+
+B_m = [Va/Laa; -TL/J; 0 ];
+
+Ts = 1e-7;
+
+x = [0 ;0 ;0]; % condiciones iniciales nulas
+
+t = 0:Ts:1; % vector de tiempo
+
+
+ia = zeros(length(t),1);
+wr = zeros(length(t),1);
+VaV = 12*ones(length(t),1);
+tita = zeros(length(t),1);
+%Evolucion del sistema usando Euler
+for idx = 1:length(t)
+    
+    ia(idx) = x(1);
+    wr(idx) = x(2);
+    
+    
+    xp = A_m*x + B_m; % agragar "u" para variar las condiciones
+    x = x + xp.*Ts;
+    
+end
+%MaxTorque=min(wr) %verifico hasta donde llega la velocidad angular en
+%sentido contrario
+
+MaxCorriente= max(ia)% Aca puedo ver el valor maximo de corriente de 
+%armadura en regimen para el torque maximo, la cual es de aproximadamente 200mA,
+%aunque para un menor torque esta disminuye
+subplot(3,1,1);hold on;plot(wr,'r');title('Salida y, \omega_t')
+subplot(3,1,2);hold on;plot(ia,'k');title('Corriente de salida, i_a')
+subplot(3,1,3);hold on;plot(VaV,'b');title('Entrada u_t, v_a')
+xlabel('Tiempo [Seg.]');
+
