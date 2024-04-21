@@ -1,0 +1,75 @@
+%Trabajo practico N° 1 - Sistemas de Control II - FCEFyN
+%Profesor: Dr. Ing. Julian Pucheta
+%Alumno: Valentin Jose Ramirez
+%Ej N°5: A partir de las curvas de mediciones de las variables graficadas
+%en la Fig. 1-3, se requiere obtener el modelo del sistema considerando
+%como entrada un escalón de 12V, como salida a la velocidad angular, y al
+%torque de carga TL aplicado una perturbación. En el archivo
+%Curvas_Medidas_Motor.xls están las mediciones, en la primer hoja los
+%valores y en la segunda los nombres. Se requiere obtener el modelo
+%dinámico, para establecer las constantes del modelo (1-5) (1-6)
+archivo_excel = 'Curvas_Medidas_Motor_2024';
+hoja_datos = 'Hoja1';
+syms s
+% Lee los datos del archivo Excel
+[numeros, texto, datos] = xlsread(archivo_excel, hoja_datos);
+time = numeros(:, 1); % Tiempo [s]
+wr = numeros(:, 2); % Velocidad angular [rad/seg]
+ia = numeros(:, 3); % Corriente de armadura [A]
+va = numeros(:, 4); % Tension de entrada
+tl = numeros(:, 5);   % Torque
+%plot(time, ia)
+%Parametros calculados analiticamente:
+Ra = (12-(62.4704745/16.52))/0.426578
+Km = 1/K;
+Ki= 1/Km;
+J= 8.25e-5 * (Km * Ki)/Ra
+Laa= 2.061e-9 * (Km * Ki)/J % 2.061e-9 * (0.06053 * 0.06053)/(1.5689e-08)
+
+%Calculo de Wr/Va
+%Aplico Chen para wr/Va:
+t1=time(703)-0.0351; %le resto el retardo para que la funcion arranque en cero y aplicar chen 
+y1=wr(703);  %Valores equidistantes
+y2=wr(704);
+y3=wr(705);
+%teorema del valor final
+opt = stepDataOptions;
+opt.StepAmplitude = 12;
+K=198.2488/opt.StepAmplitude;
+%método de Chen
+k1=(1/opt.StepAmplitude)*y1/K-1;
+k2=(1/opt.StepAmplitude)*y2/K-1;
+k3=(1/opt.StepAmplitude)*y3/K-1;
+be=4*k1^3*k3-3*k1^2*k2^2-4*k2^3+k3^2+6*k1*k2*k3;
+alfa1=(k1*k2+k3-sqrt(be))/(2*(k1^2+k2));
+alfa2=(k1*k2+k3+sqrt(be))/(2*(k1^2+k2));
+beta=(k1+alfa2)/(alfa1-alfa2);
+ii=0;
+ii=ii+1;
+T1est=-t1/log(alfa1);
+T2est=-t1/log(alfa2);
+T3est=beta*(T1est-T2est)+T1est;
+T1(ii)=T1est;
+T2(ii)=T2est;
+T3(ii)=T3est;
+T3est=sum(T3/length(T3));
+T2est=sum(T2/length(T2));
+T1est=sum(T1/length(T1));
+num=[T3est 1];
+den=conv([T1est 1],[T2est 1]);
+Gs=tf(K*num, den);
+step(Gs,0.001, opt, 'b');hold on;
+%Ahora defino numerador y denominador de la FdT calculada analaticamente y
+%si coincide con la del metodo de Chen los parametros son correctos.
+num1 = [1/Km];
+den1 = [(Laa*J/(Ki*Km)) (Ra*J/(Ki*Km))  1];
+Gcalc = tf(num1, den1);
+step(Gcalc,0.001, opt, 'g');
+%Verificacion de que los terminos esten acordes:
+%termino1=Laa*J/(Ki*Km) %2.0610e-09
+%termino2= Ra*J/(Ki*Km) % 8.2500e-05
+%termino3= 1
+%Ganancia= 1/Km 
+
+% 
+% 
